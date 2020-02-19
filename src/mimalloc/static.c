@@ -4,9 +4,7 @@ This is free software; you can redistribute it and/or modify it under the
 terms of the MIT license. A copy of the license can be found in the file
 "LICENSE" at the root of this distribution.
 -----------------------------------------------------------------------------*/
-#ifndef _DEFAULT_SOURCE
-    #define _DEFAULT_SOURCE
-#endif
+#define _DEFAULT_SOURCE
 
 #include "mimalloc.h"
 #include "mimalloc-internal.h"
@@ -19,7 +17,7 @@ terms of the MIT license. A copy of the license can be found in the file
 #include "random.c"
 #include "os.c"
 #include "arena.c"
-#include "memory.c"
+#include "region.c"
 #include "segment.c"
 #include "page.c"
 #include "heap.c"

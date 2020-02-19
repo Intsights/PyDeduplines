@@ -67,10 +67,14 @@ static mi_option_desc_t options[_mi_option_last] =
   { 0, UNINIT, MI_OPTION(large_os_pages) },      // use large OS pages, use only with eager commit to prevent fragmentation of VMA's
   { 0, UNINIT, MI_OPTION(reserve_huge_os_pages) },
   { 0, UNINIT, MI_OPTION(segment_cache) },       // cache N segments per thread
-  { 0, UNINIT, MI_OPTION(page_reset) },          // reset page memory on free
+  { 1, UNINIT, MI_OPTION(page_reset) },          // reset page memory on free
   { 0, UNINIT, MI_OPTION(abandoned_page_reset) },// reset free page memory when a thread terminates
   { 0, UNINIT, MI_OPTION(segment_reset) },       // reset segment memory on free (needs eager commit)
+#if defined(__NetBSD__)
   { 0, UNINIT, MI_OPTION(eager_commit_delay) },  // the first N segments per thread are not eagerly committed
+#else
+  { 1, UNINIT, MI_OPTION(eager_commit_delay) },  // the first N segments per thread are not eagerly committed
+#endif
   { 100, UNINIT, MI_OPTION(reset_delay) },       // reset delay in milli-seconds
   { 0,   UNINIT, MI_OPTION(use_numa_nodes) },    // 0 = use available numa nodes, otherwise use at most N nodes.
   { 100, UNINIT, MI_OPTION(os_tag) },            // only apple specific for now but might serve more or less related purpose
@@ -85,7 +89,7 @@ void _mi_options_init(void) {
   mi_add_stderr_output(); // now it safe to use stderr for output
   for(int i = 0; i < _mi_option_last; i++ ) {
     mi_option_t option = (mi_option_t)i;
-    mi_option_get(option); // initialize
+    long l = mi_option_get(option); UNUSED(l); // initialize
     if (option != mi_option_verbose) {
       mi_option_desc_t* desc = &options[option];
       _mi_verbose_message("option '%s': %ld\n", desc->name, desc->value);
@@ -169,7 +173,7 @@ static void mi_out_buf(const char* msg, void* arg) {
   size_t n = strlen(msg);
   if (n==0) return;
   // claim space
-  uintptr_t start = mi_atomic_addu(&out_len, n);
+  uintptr_t start = mi_atomic_add(&out_len, n);
   if (start >= MI_MAX_DELAY_OUTPUT) return;
   // check bound
   if (start+n >= MI_MAX_DELAY_OUTPUT) {
@@ -181,7 +185,7 @@ static void mi_out_buf(const char* msg, void* arg) {
 static void mi_out_buf_flush(mi_output_fun* out, bool no_more_buf, void* arg) {
   if (out==NULL) return;
   // claim (if `no_more_buf == true`, no more output will be added after this point)
-  size_t count = mi_atomic_addu(&out_len, (no_more_buf ? MI_MAX_DELAY_OUTPUT : 1));
+  size_t count = mi_atomic_add(&out_len, (no_more_buf ? MI_MAX_DELAY_OUTPUT : 1));
   // and output the current contents
   if (count>MI_MAX_DELAY_OUTPUT) count = MI_MAX_DELAY_OUTPUT;
   out_buf[count] = 0;
@@ -212,14 +216,14 @@ static mi_output_fun* volatile mi_out_default; // = NULL
 static volatile _Atomic(void*) mi_out_arg; // = NULL
 
 static mi_output_fun* mi_out_get_default(void** parg) {
-  if (parg != NULL) { *parg = mi_atomic_read_ptr(&mi_out_arg); }
+  if (parg != NULL) { *parg = mi_atomic_read_ptr(void,&mi_out_arg); }
   mi_output_fun* out = mi_out_default;
   return (out == NULL ? &mi_out_buf : out);
 }
 
 void mi_register_output(mi_output_fun* out, void* arg) mi_attr_noexcept {
   mi_out_default = (out == NULL ? &mi_out_stderr : out); // stop using the delayed output buffer
-  mi_atomic_write_ptr(&mi_out_arg, arg);
+  mi_atomic_write_ptr(void,&mi_out_arg, arg);
   if (out!=NULL) mi_out_buf_flush(out,true,arg);         // output all the delayed output now
 }
 
@@ -239,16 +243,30 @@ static volatile _Atomic(uintptr_t) error_count; // = 0;  // when MAX_ERROR_COUNT
 // inside the C runtime causes another message.
 static mi_decl_thread bool recurse = false;
 
+static bool mi_recurse_enter(void) {
+  #ifdef MI_TLS_RECURSE_GUARD
+  if (_mi_preloading()) return true;
+  #endif
+  if (recurse) return false;
+  recurse = true;
+  return true;
+}
+
+static void mi_recurse_exit(void) {
+  #ifdef MI_TLS_RECURSE_GUARD
+  if (_mi_preloading()) return;
+  #endif
+  recurse = false;
+}
+
 void _mi_fputs(mi_output_fun* out, void* arg, const char* prefix, const char* message) {
-  if (recurse) return;
+  if (!mi_recurse_enter()) return;
   if (out==NULL || (FILE*)out==stdout || (FILE*)out==stderr) { // TODO: use mi_out_stderr for stderr?
     out = mi_out_get_default(&arg);
   }
-  recurse = true;
   if (prefix != NULL) out(prefix,arg);
   out(message,arg);
-  recurse = false;
-  return;
+  mi_recurse_exit();
 }
 
 // Define our own limited `fprintf` that avoids memory allocation.
@@ -256,13 +274,11 @@ void _mi_fputs(mi_output_fun* out, void* arg, const char* prefix, const char* me
 static void mi_vfprintf( mi_output_fun* out, void* arg, const char* prefix, const char* fmt, va_list args ) {
   char buf[512];
   if (fmt==NULL) return;
-  if (recurse) return;
-  recurse = true;
+  if (!mi_recurse_enter()) return;
   vsnprintf(buf,sizeof(buf)-1,fmt,args);
-  recurse = false;
+  mi_recurse_exit();
   _mi_fputs(out,arg,prefix,buf);
 }
-
 
 void _mi_fprintf( mi_output_fun* out, void* arg, const char* fmt, ... ) {
   va_list args;
@@ -290,7 +306,7 @@ void _mi_verbose_message(const char* fmt, ...) {
 static void mi_show_error_message(const char* fmt, va_list args) {
   if (!mi_option_is_enabled(mi_option_show_errors) && !mi_option_is_enabled(mi_option_verbose)) return;
   if (mi_atomic_increment(&error_count) > mi_max_error_count) return;
-  mi_vfprintf(NULL, NULL, "mimalloc: error: ", fmt, args);  
+  mi_vfprintf(NULL, NULL, "mimalloc: error: ", fmt, args);
 }
 
 void _mi_warning_message(const char* fmt, ...) {
@@ -319,6 +335,14 @@ static volatile _Atomic(void*) mi_error_arg;     // = NULL
 
 static void mi_error_default(int err) {
   UNUSED(err);
+#if (MI_DEBUG>0) 
+  if (err==EFAULT) {
+    #ifdef _MSC_VER
+    __debugbreak();
+    #endif
+    abort();
+  }
+#endif
 #if (MI_SECURE>0)
   if (err==EFAULT) {  // abort on serious errors in secure mode (corrupted meta-data)
     abort();
@@ -328,7 +352,7 @@ static void mi_error_default(int err) {
 
 void mi_register_error(mi_error_fun* fun, void* arg) {
   mi_error_handler = fun;  // can be NULL
-  mi_atomic_write_ptr(&mi_error_arg, arg);
+  mi_atomic_write_ptr(void,&mi_error_arg, arg);
 }
 
 void _mi_error_message(int err, const char* fmt, ...) {
@@ -339,7 +363,7 @@ void _mi_error_message(int err, const char* fmt, ...) {
   va_end(args);
   // and call the error handler which may abort (or return normally)
   if (mi_error_handler != NULL) {
-    mi_error_handler(err, mi_atomic_read_ptr(&mi_error_arg));
+    mi_error_handler(err, mi_atomic_read_ptr(void,&mi_error_arg));
   }
   else {
     mi_error_default(err);
