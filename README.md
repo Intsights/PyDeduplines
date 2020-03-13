@@ -43,13 +43,13 @@ PyDeduplines is a library intended for deduplicating multiple files, line by lin
 #### CPU
 | Library  | Text Size | Function | Time | Improvement Factor |
 | ------------- | ------------- | ------------- | ------------- | ------------- |
-| [ripgrepy](https://pypi.org/project/ripgrepy/) | 500mb | sort -u -o output input | 40.37s | 1.0x |
+| [GNU Sort](https://www.gnu.org/software/coreutils/) | 500mb | sort -u -o output input | 40.37s | 1.0x |
 | [PyDeduplines](https://github.com/intsights/PyDeduplines) | 500mb | pydeduplines.deduplicate_lines(['input'], 'output') | 18.54s | 2.17x |
 
 #### Memory
 | Library  | Text Size | Function | Peak RSS Memory (bytes) | Improvement Factor |
 | ------------- | ------------- | ------------- | ------------- | ------------- |
-| [ripgrepy](https://pypi.org/project/ripgrepy/) | 500mb | sort -u -o output input | 4802100 | 1.0x |
+| [GNU Sort](https://www.gnu.org/software/coreutils/) | 500mb | sort -u -o output input | 4802100 | 1.0x |
 | [PyDeduplines](https://github.com/intsights/PyDeduplines) | 500mb | pydeduplines.deduplicate_lines(['input'], 'output') | 2345932 | 2.05x |
 
 
