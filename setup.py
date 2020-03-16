@@ -1,12 +1,28 @@
 import setuptools
-import pybind11
 import os
 import glob
 
 
+class GetPybind11Include:
+    def __init__(
+        self,
+        user,
+    ):
+        self.user = user
+
+    def __str__(
+        self,
+    ):
+        import pybind11
+
+        return pybind11.get_include(
+            user=self.user,
+        )
+
+
 setuptools.setup(
     name='PyDeduplines',
-    version='0.1.1',
+    version='0.1.2',
     author='Gal Ben David',
     author_email='gal@intsights.com',
     url='https://github.com/intsights/PyDeduplines',
@@ -27,6 +43,9 @@ setuptools.setup(
     python_requires='>=3.6',
     zip_safe=False,
     install_requires=[
+        'pybind11',
+    ],
+    setup_requires=[
         'pybind11',
     ],
     package_data={},
@@ -51,8 +70,8 @@ setuptools.setup(
             include_dirs=[
                 'src',
                 'src/mimalloc/include',
-                pybind11.get_include(False),
-                pybind11.get_include(True),
+                GetPybind11Include(False),
+                GetPybind11Include(True),
             ]
         ),
     ],
