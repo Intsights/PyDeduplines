@@ -32,9 +32,9 @@ const mi_page_t _mi_page_empty = {
 
 #define MI_PAGE_EMPTY() ((mi_page_t*)&_mi_page_empty)
 
-#if defined(MI_PADDING) && (MI_INTPTR_SIZE >= 8)
+#if (MI_PADDING>0) && (MI_INTPTR_SIZE >= 8)
 #define MI_SMALL_PAGES_EMPTY  { MI_INIT128(MI_PAGE_EMPTY), MI_PAGE_EMPTY(), MI_PAGE_EMPTY() }
-#elif defined(MI_PADDING)
+#elif (MI_PADDING>0)
 #define MI_SMALL_PAGES_EMPTY  { MI_INIT128(MI_PAGE_EMPTY), MI_PAGE_EMPTY(), MI_PAGE_EMPTY(), MI_PAGE_EMPTY() }
 #else
 #define MI_SMALL_PAGES_EMPTY  { MI_INIT128(MI_PAGE_EMPTY), MI_PAGE_EMPTY() }
@@ -97,6 +97,7 @@ const mi_heap_t _mi_heap_empty = {
   { 0, 0 },         // keys
   { {0}, {0}, 0 },
   0,                // page count
+  MI_BIN_FULL, 0,   // page retired min/max
   NULL,             // next
   false
 };
@@ -131,6 +132,7 @@ mi_heap_t _mi_heap_main = {
   { 0, 0 },         // the key of the main heap can be fixed (unlike page keys that need to be secure!)
   { {0x846ca68b}, {0}, 0 },  // random
   0,                // page count
+  MI_BIN_FULL, 0,   // page retired min/max
   NULL,             // next heap
   false             // can reclaim
 };
@@ -214,7 +216,6 @@ static bool _mi_heap_done(mi_heap_t* heap) {
   heap = heap->tld->heap_backing;
   if (!mi_heap_is_initialized(heap)) return false;
 
-
   // delete all non-backing heaps in this thread
   mi_heap_t* curr = heap->tld->heaps;
   while (curr != NULL) {
@@ -232,16 +233,19 @@ static bool _mi_heap_done(mi_heap_t* heap) {
   if (heap != &_mi_heap_main) {
     _mi_heap_collect_abandon(heap);
   }
+  
 
   // merge stats
   _mi_stats_done(&heap->tld->stats);
 
   // free if not the main thread
   if (heap != &_mi_heap_main) {
-    mi_assert_internal(heap->tld->segments.count == 0);
+    mi_assert_internal(heap->tld->segments.count == 0 || heap->thread_id != _mi_thread_id());
     _mi_os_free(heap, sizeof(mi_thread_data_t), &_mi_stats_main);
   }
-#if (MI_DEBUG > 0)
+#if 0  
+  // never free the main thread even in debug mode; if a dll is linked statically with mimalloc,
+  // there may still be delete/free calls after the mi_fls_done is called. Issue #207
   else {
     _mi_heap_destroy_pages(heap);
     mi_assert_internal(heap->tld->heap_backing == &_mi_heap_main);
@@ -282,6 +286,12 @@ static void _mi_thread_done(mi_heap_t* default_heap);
   // use thread local storage keys to detect thread ending
   #include <windows.h>
   #include <fibersapi.h>
+  #if (_WIN32_WINNT < 0x600)  // before Windows Vista 
+  WINBASEAPI DWORD WINAPI FlsAlloc( _In_opt_ PFLS_CALLBACK_FUNCTION lpCallback );
+  WINBASEAPI PVOID WINAPI FlsGetValue( _In_ DWORD dwFlsIndex );
+  WINBASEAPI BOOL  WINAPI FlsSetValue( _In_ DWORD dwFlsIndex, _In_opt_ PVOID lpFlsData );
+  WINBASEAPI BOOL  WINAPI FlsFree(_In_ DWORD dwFlsIndex);
+  #endif
   static DWORD mi_fls_key = (DWORD)(-1);
   static void NTAPI mi_fls_done(PVOID value) {
     if (value!=NULL) _mi_thread_done((mi_heap_t*)value);
@@ -345,12 +355,16 @@ void mi_thread_done(void) mi_attr_noexcept {
 }
 
 static void _mi_thread_done(mi_heap_t* heap) {
+  // check thread-id as on Windows shutdown with FLS the main (exit) thread may call this on thread-local heaps...
+  if (heap->thread_id != _mi_thread_id()) return;
+
   // stats
   if (!_mi_is_main_thread() && mi_heap_is_initialized(heap))  {
     _mi_stat_decrease(&heap->tld->stats.threads, 1);
   }
+
   // abandon the thread local heap
-  if (_mi_heap_done(heap)) return; // returns true if already ran
+  if (_mi_heap_done(heap)) return;  // returns true if already ran
 }
 
 void _mi_heap_set_default_direct(mi_heap_t* heap)  {
@@ -483,6 +497,10 @@ static void mi_process_done(void) {
   if (process_done) return;
   process_done = true;
 
+  #if defined(_WIN32) && !defined(MI_SHARED_LIB)
+  FlsSetValue(mi_fls_key, NULL);  // don't call main-thread callback
+  FlsFree(mi_fls_key);            // call thread-done on all threads to prevent dangling callback pointer if statically linked with a DLL; Issue #208
+  #endif
   #ifndef NDEBUG
   mi_collect(true);
   #endif
@@ -490,7 +508,7 @@ static void mi_process_done(void) {
       mi_option_is_enabled(mi_option_verbose)) {
     mi_stats_print(NULL);
   }
-  mi_allocator_done();
+  mi_allocator_done();  
   _mi_verbose_message("process done: 0x%zx\n", _mi_heap_main.thread_id);
   os_preloading = true; // don't call the C runtime anymore
 }
