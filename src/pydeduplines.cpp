@@ -28,7 +28,7 @@ void deduplicate_lines(
             if (inserted == false) {
                 delete [] tmp_line;
             } else {
-                output_file << line << '\n';
+                output_file << line_sv << '\n';
             }
         }
 
@@ -39,6 +39,13 @@ void deduplicate_lines(
         delete [] line.data();
     }
     lines_set.clear();
+}
+
+
+void split_files_deterministic(
+    std::vector<std::string> input_files_paths,
+    std::string output_dir
+) {
 }
 
 

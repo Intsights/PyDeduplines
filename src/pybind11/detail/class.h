@@ -12,10 +12,10 @@
 #include "../attr.h"
 #include "../options.h"
 
-NAMESPACE_BEGIN(PYBIND11_NAMESPACE)
-NAMESPACE_BEGIN(detail)
+PYBIND11_NAMESPACE_BEGIN(PYBIND11_NAMESPACE)
+PYBIND11_NAMESPACE_BEGIN(detail)
 
-#if PY_VERSION_HEX >= 0x03030000
+#if PY_VERSION_HEX >= 0x03030000 && !defined(PYPY_VERSION)
 #  define PYBIND11_BUILTIN_QUALNAME
 #  define PYBIND11_SET_OLDPY_QUALNAME(obj, nameobj)
 #else
@@ -156,6 +156,31 @@ extern "C" inline PyObject *pybind11_meta_getattro(PyObject *obj, PyObject *name
 }
 #endif
 
+/// metaclass `__call__` function that is used to create all pybind11 objects.
+extern "C" inline PyObject *pybind11_meta_call(PyObject *type, PyObject *args, PyObject *kwargs) {
+
+    // use the default metaclass call to create/initialize the object
+    PyObject *self = PyType_Type.tp_call(type, args, kwargs);
+    if (self == nullptr) {
+        return nullptr;
+    }
+
+    // This must be a pybind11 instance
+    auto instance = reinterpret_cast<detail::instance *>(self);
+
+    // Ensure that the base __init__ function(s) were called
+    for (auto vh : values_and_holders(instance)) {
+        if (!vh.holder_constructed()) {
+            PyErr_Format(PyExc_TypeError, "%.200s.__init__() must be called when overriding __init__",
+                         vh.type->type->tp_name);
+            Py_DECREF(self);
+            return nullptr;
+        }
+    }
+
+    return self;
+}
+
 /** This metaclass is assigned by default to all pybind11 types and is required in order
     for static properties to function correctly. Users may override this using `py::metaclass`.
     Return value: New reference. */
@@ -180,6 +205,8 @@ inline PyTypeObject* make_default_metaclass() {
     type->tp_name = name;
     type->tp_base = type_incref(&PyType_Type);
     type->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
+
+    type->tp_call = pybind11_meta_call;
 
     type->tp_setattro = pybind11_meta_setattro;
 #if PY_MAJOR_VERSION >= 3
@@ -448,7 +475,7 @@ extern "C" inline int pybind11_clear(PyObject *self) {
 /// Give instances of this type a `__dict__` and opt into garbage collection.
 inline void enable_dynamic_attributes(PyHeapTypeObject *heap_type) {
     auto type = &heap_type->ht_type;
-#if defined(PYPY_VERSION)
+#if defined(PYPY_VERSION) && (PYPY_VERSION_NUM < 0x06000000)
     pybind11_fail(std::string(type->tp_name) + ": dynamic attributes are "
                                                "currently not supported in "
                                                "conjunction with PyPy!");
@@ -637,5 +664,5 @@ inline PyObject* make_new_python_type(const type_record &rec) {
     return (PyObject *) type;
 }
 
-NAMESPACE_END(detail)
-NAMESPACE_END(PYBIND11_NAMESPACE)
+PYBIND11_NAMESPACE_END(detail)
+PYBIND11_NAMESPACE_END(PYBIND11_NAMESPACE)
