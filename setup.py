@@ -47,7 +47,6 @@ setuptools.setup(
             extra_link_args=[],
             include_dirs=[
                 'src',
-                'src/mimalloc/include',
             ]
         ),
     ],
