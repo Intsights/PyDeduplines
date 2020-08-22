@@ -19,6 +19,10 @@ void deduplicate_lines(
 
     for (const auto & input_file_path : input_files_paths) {
         std::ifstream input_file(input_file_path);
+        if (!input_file.is_open()) {
+            throw std::runtime_error("Could not open input file: " + input_file_path);
+        }
+
         std::string line;
         while (std::getline(input_file, line)) {
             char * tmp_line = new char[line.size()];
@@ -39,13 +43,6 @@ void deduplicate_lines(
         delete [] line.data();
     }
     lines_set.clear();
-}
-
-
-void split_files_deterministic(
-    std::vector<std::string> input_files_paths,
-    std::string output_dir
-) {
 }
 
 

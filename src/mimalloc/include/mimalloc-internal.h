@@ -238,23 +238,28 @@ static inline bool mi_malloc_satisfies_alignment(size_t alignment, size_t size) 
 }
 
 // Overflow detecting multiply
-static inline bool mi_mul_overflow(size_t count, size_t size, size_t* total) {
 #if __has_builtin(__builtin_umul_overflow) || __GNUC__ >= 5
-#include <limits.h>   // UINT_MAX, ULONG_MAX
-#if (SIZE_MAX == UINT_MAX)
-  return __builtin_umul_overflow(count, size, total);
-#elif (SIZE_MAX == ULONG_MAX)
-  return __builtin_umull_overflow(count, size, total);
-#else
-  return __builtin_umulll_overflow(count, size, total);
+#include <limits.h>      // UINT_MAX, ULONG_MAX
+#if defined(_CLOCK_T)    // for Illumos
+#undef _CLOCK_T
 #endif
+static inline bool mi_mul_overflow(size_t count, size_t size, size_t* total) {
+  #if (SIZE_MAX == UINT_MAX)
+    return __builtin_umul_overflow(count, size, total);
+  #elif (SIZE_MAX == ULONG_MAX)
+    return __builtin_umull_overflow(count, size, total);
+  #else
+    return __builtin_umulll_overflow(count, size, total);
+  #endif
+}
 #else /* __builtin_umul_overflow is unavailable */
+static inline bool mi_mul_overflow(size_t count, size_t size, size_t* total) {
   #define MI_MUL_NO_OVERFLOW ((size_t)1 << (4*sizeof(size_t)))  // sqrt(SIZE_MAX)
   *total = count * size;
   return ((size >= MI_MUL_NO_OVERFLOW || count >= MI_MUL_NO_OVERFLOW)
-          && size > 0 && (SIZE_MAX / size) < count);
-#endif
+    && size > 0 && (SIZE_MAX / size) < count);
 }
+#endif
 
 // Safe multiply `count*size` into `total`; return `true` on overflow.
 static inline bool mi_count_size_overflow(size_t count, size_t size, size_t* total) {
@@ -263,7 +268,7 @@ static inline bool mi_count_size_overflow(size_t count, size_t size, size_t* tot
     return false;
   }
   else if (mi_unlikely(mi_mul_overflow(count, size, total))) {
-    _mi_error_message(EOVERFLOW, "allocation request too large (%zu * %zu bytes)\n", count, size);
+    _mi_error_message(EOVERFLOW, "allocation request is too large (%zu * %zu bytes)\n", count, size);
     *total = SIZE_MAX;
     return true;
   }
@@ -569,11 +574,11 @@ static inline bool mi_is_in_same_page(const void* p, const void* q) {
 
 static inline uintptr_t mi_rotl(uintptr_t x, uintptr_t shift) {
   shift %= MI_INTPTR_BITS;
-  return ((x << shift) | (x >> (MI_INTPTR_BITS - shift)));
+  return (shift==0 ? x : ((x << shift) | (x >> (MI_INTPTR_BITS - shift))));
 }
 static inline uintptr_t mi_rotr(uintptr_t x, uintptr_t shift) {
   shift %= MI_INTPTR_BITS;
-  return ((x >> shift) | (x << (MI_INTPTR_BITS - shift)));
+  return (shift==0 ? x : ((x >> shift) | (x << (MI_INTPTR_BITS - shift))));
 }
 
 static inline void* mi_ptr_decode(const void* null, const mi_encoded_t x, const uintptr_t* keys) {

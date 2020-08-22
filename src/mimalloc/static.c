@@ -7,6 +7,11 @@ terms of the MIT license. A copy of the license can be found in the file
 #ifndef _DEFAULT_SOURCE
 #define _DEFAULT_SOURCE
 #endif
+#if defined(__sun)
+// same remarks as os.c for the static's context.
+#undef _XOPEN_SOURCE
+#undef _POSIX_C_SOURCE
+#endif
 
 #include "mimalloc.h"
 #include "mimalloc-internal.h"
