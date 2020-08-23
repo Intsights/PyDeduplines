@@ -8,7 +8,7 @@ import pydeduplines
 
 @pytest.mark.parametrize('number_of_threads', [0, 1, 2])
 @pytest.mark.parametrize('number_of_splits', [1, 2])
-def test_compute_deduped_lines_one_file(
+def test_compute_unique_lines_one_file(
     number_of_threads,
     number_of_splits,
 ):
@@ -35,21 +35,21 @@ def test_compute_deduped_lines_one_file(
         test_input_file_one.file.write('\n'.join(lines * 2))
         test_input_file_one.file.flush()
 
-        file_deduplicator.compute_deduped_lines(
+        file_deduplicator.compute_unique_lines(
             file_paths=[
                 test_input_file_one.name,
             ],
             output_file_path=test_output_file.name,
             number_of_splits=number_of_splits,
         )
-        deduped_file_data = test_output_file.read()
+        unique_file_data = test_output_file.read()
 
-        assert sorted(deduped_file_data.split('\n')) == sorted(lines + [''])
+        assert sorted(unique_file_data.split('\n')) == sorted(lines + [''])
 
 
 @pytest.mark.parametrize('number_of_threads', [0, 1, 2])
 @pytest.mark.parametrize('number_of_splits', [1, 2])
-def test_compute_deduped_lines_two_files(
+def test_compute_unique_lines_two_files(
     number_of_threads,
     number_of_splits,
 ):
@@ -82,7 +82,7 @@ def test_compute_deduped_lines_two_files(
         test_input_file_two.file.write('\n'.join(lines[:11000]))
         test_input_file_two.file.flush()
 
-        file_deduplicator.compute_deduped_lines(
+        file_deduplicator.compute_unique_lines(
             file_paths=[
                 test_input_file_one.name,
                 test_input_file_two.name,
@@ -90,9 +90,9 @@ def test_compute_deduped_lines_two_files(
             output_file_path=test_output_file.name,
             number_of_splits=number_of_splits,
         )
-        deduped_file_data = test_output_file.read()
+        unique_file_data = test_output_file.read()
 
-        assert sorted(deduped_file_data.split('\n')) == sorted(lines + [''])
+        assert sorted(unique_file_data.split('\n')) == sorted(lines + [''])
 
 
 @pytest.mark.parametrize('number_of_splits', [1, 2])

@@ -105,7 +105,7 @@ class FilesDeduplicator {
         }
     }
 
-    void compute_part_deduped_lines(
+    void compute_part_unique_lines(
         std::vector<std::filesystem::path> file_paths,
         std::ofstream & output_file
     ) {
@@ -174,7 +174,7 @@ class FilesDeduplicator {
         this->taskflow_executor->run(compute_added_lines_tf).wait();
     }
 
-    void compute_deduped_lines(
+    void compute_unique_lines(
         std::vector<std::filesystem::path> file_paths,
         std::filesystem::path output_file_path,
         std::uint8_t number_of_splits
@@ -208,7 +208,7 @@ class FilesDeduplicator {
                     );
                     part_file_paths.push_back(part_file_path);
                 }
-                compute_part_deduped_lines(part_file_paths, output_file);
+                compute_part_unique_lines(part_file_paths, output_file);
             }
         );
 
@@ -245,9 +245,9 @@ PYBIND11_MODULE(pydeduplines, m) {
             pybind11::arg("number_of_splits")
         )
         .def(
-            "compute_deduped_lines",
-            &FilesDeduplicator::compute_deduped_lines,
-            "Iterate over the input files and writes distinct lines into the output file",
+            "compute_unique_lines",
+            &FilesDeduplicator::compute_unique_lines,
+            "Iterate over the input files and writes unique lines into the output file",
             pybind11::arg("file_paths"),
             pybind11::arg("output_file_path"),
             pybind11::arg("number_of_splits")
