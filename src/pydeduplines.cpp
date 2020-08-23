@@ -231,14 +231,14 @@ PYBIND11_MODULE(pydeduplines, m) {
     pybind11::class_<FilesDeduplicator>(m, "FilesDeduplicator")
         .def(
             pybind11::init<std::string, std::uint8_t>(),
-            "FilesDeduplicator object that handles searches over an index file",
+            "FilesDeduplicator file manipulations methods such as deduplicating lines and find additional lines",
             pybind11::arg("working_directory"),
             pybind11::arg("number_of_threads")
         )
         .def(
             "compute_added_lines",
             &FilesDeduplicator::compute_added_lines,
-            "search over an index file for a substring",
+            "Compute the added lines that exist in second file and not in first file",
             pybind11::arg("first_file_path"),
             pybind11::arg("second_file_path"),
             pybind11::arg("output_file_path"),
@@ -247,7 +247,7 @@ PYBIND11_MODULE(pydeduplines, m) {
         .def(
             "compute_deduped_lines",
             &FilesDeduplicator::compute_deduped_lines,
-            "search over an index file for a substring",
+            "Iterate over the input files and writes distinct lines into the output file",
             pybind11::arg("file_paths"),
             pybind11::arg("output_file_path"),
             pybind11::arg("number_of_splits")
