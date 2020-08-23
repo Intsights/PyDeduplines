@@ -13,10 +13,6 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install Ubuntu packages
-      run: >-
-        sudo apt install g++-9;
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 9;
     - name: Test module
       run: >-
         python setup.py test
