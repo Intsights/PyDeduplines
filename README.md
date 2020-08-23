@@ -47,13 +47,13 @@ The library consists of two functions:
 
 #### Deduplicating
 | Library  | Function | Time | Peak Memory |
-| ------------- | ------------- | ------------- | ------------- | ------------- |
+| ------------- | ------------- | ------------- | ------------- |
 | [GNU Sort](https://www.gnu.org/software/coreutils/) | sort -u -o output 500mb_one 500mb_two | 53.35s | 9,376mb |
 | [PyDeduplines](https://github.com/intsights/PyDeduplines) | compute_unique_lines(['500mb_one', '500mb_two'], 'output', 4) | 17.31s | 1,040mb |
 
 #### Added Lines
 | Library  | Function | Time | Peak Memory |
-| ------------- | ------------- | ------------- | ------------- | ------------- |
+| ------------- | ------------- | ------------- | ------------- |
 | [GNU Sort](https://www.gnu.org/software/coreutils/) | comm -13 <(sort 500mb_one -u) <(sort 500mb_two -u) | 52.04s | 9,376mb |
 | [PyDeduplines](https://github.com/intsights/PyDeduplines) | compute_added_lines('500mb_one', '500mb_two', 'output', 4) | 6.91s | 681mb |
 
