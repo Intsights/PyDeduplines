@@ -27,6 +27,12 @@ setuptools.setup(
     zip_safe=False,
     package_data={},
     include_package_data=True,
+    setup_requires=[
+        'pytest-runner',
+    ],
+    tests_require=[
+        'pytest',
+    ],
     ext_modules=[
         setuptools.Extension(
             name='pydeduplines',

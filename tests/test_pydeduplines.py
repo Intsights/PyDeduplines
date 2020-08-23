@@ -6,16 +6,65 @@ import contextlib
 import pydeduplines
 
 
-class PyDeduplinesTestCase(
+class FilesDeduplicatorTestCase(
     unittest.TestCase,
 ):
-    def test_pydeduplines(
+    def setUp(
+        self,
+    ):
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.file_deduplicator = pydeduplines.FilesDeduplicator(
+            working_directory=self.tempdir.name,
+            number_of_threads=1,
+        )
+
+    def tearDown(
+        self,
+    ):
+        self.tempdir.cleanup()
+
+    def test_compute_deduped_lines_one_file(
+        self,
+    ):
+        with contextlib.ExitStack() as stack:
+            test_input_file_one = stack.enter_context(tempfile.NamedTemporaryFile('w'))
+            test_output_file_one = stack.enter_context(tempfile.NamedTemporaryFile('r'))
+
+            test_input_file_one.file.write(
+                'line1\n'
+                'line2\n'
+                'line3\n'
+                'line1\n'
+                'line3\n'
+                'line4\n'
+                'line1\n'
+            )
+            test_input_file_one.file.flush()
+
+            self.file_deduplicator.compute_deduped_lines(
+                file_paths=[
+                    test_input_file_one.name,
+                ],
+                output_file_path=test_output_file_one.name,
+                number_of_splits=1,
+            )
+            deduped_file_data = test_output_file_one.read()
+            self.assertEqual(
+                first=deduped_file_data,
+                second=(
+                    'line1\n'
+                    'line2\n'
+                    'line3\n'
+                    'line4\n'
+                ),
+            )
+
+    def test_compute_deduped_lines_two_files(
         self,
     ):
         with contextlib.ExitStack() as stack:
             test_input_file_one = stack.enter_context(tempfile.NamedTemporaryFile('w'))
             test_input_file_two = stack.enter_context(tempfile.NamedTemporaryFile('w'))
-            test_output_file_one = stack.enter_context(tempfile.NamedTemporaryFile('r'))
             test_output_file_two = stack.enter_context(tempfile.NamedTemporaryFile('r'))
 
             test_input_file_one.file.write(
@@ -40,32 +89,14 @@ class PyDeduplinesTestCase(
             )
             test_input_file_two.file.flush()
 
-            pydeduplines.deduplicate_lines(
-                input_files_paths=[
-                    test_input_file_one.name,
-                ],
-                output_file_path=test_output_file_one.name,
-            )
-
-            deduped_file_data = test_output_file_one.read()
-            self.assertEqual(
-                first=deduped_file_data,
-                second=(
-                    'line1\n'
-                    'line2\n'
-                    'line3\n'
-                    'line4\n'
-                ),
-            )
-
-            pydeduplines.deduplicate_lines(
-                input_files_paths=[
+            self.file_deduplicator.compute_deduped_lines(
+                file_paths=[
                     test_input_file_one.name,
                     test_input_file_two.name,
                 ],
                 output_file_path=test_output_file_two.name,
+                number_of_splits=1,
             )
-
             deduped_file_data = test_output_file_two.read()
             self.assertEqual(
                 first=deduped_file_data,

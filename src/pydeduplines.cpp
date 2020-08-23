@@ -106,29 +106,22 @@ class FilesDeduplicator {
     }
 
     void compute_part_deduped_lines(
-        std::filesystem::path first_file_path,
-        std::filesystem::path second_file_path,
+        std::vector<std::filesystem::path> file_paths,
         std::ofstream & output_file
     ) {
-        std::vector<std::string> first_file_lines;
-        this->load_file_lines_to_vector(first_file_path, first_file_lines);
-
-        std::vector<std::string> second_file_lines;
-        this->load_file_lines_to_vector(second_file_path, second_file_lines);
-
         phmap::parallel_flat_hash_set<std::string_view> lines_set;
-        lines_set.reserve(first_file_lines.size() + second_file_lines.size());
 
-        for (const auto & line : first_file_lines) {
-            const auto & [it, inserted] = lines_set.emplace(line);
-            if (inserted) {
-                this->output_file_mutex.lock();
-                output_file << line << '\n';
-                this->output_file_mutex.unlock();
+        std::vector<std::string> file_lines;
+        std::string line;
+        for (const auto & file_path : file_paths) {
+            std::ifstream file(file_path);
+
+            while (std::getline(file, line)) {
+                file_lines.push_back(line);
             }
         }
 
-        for (const auto & line : second_file_lines) {
+        for (const auto & line : file_lines) {
             const auto & [it, inserted] = lines_set.emplace(line);
             if (inserted) {
                 this->output_file_mutex.lock();
@@ -144,7 +137,7 @@ class FilesDeduplicator {
         std::filesystem::path output_file_path,
         std::uint8_t number_of_splits
     ) {
-        std::ofstream output_file(output_file_path.c_str());
+        std::ofstream output_file(output_file_path);
         if (!output_file.is_open()) {
             throw std::runtime_error("could not open output file: " + output_file_path.string());
         }
@@ -182,12 +175,11 @@ class FilesDeduplicator {
     }
 
     void compute_deduped_lines(
-        std::filesystem::path first_file_path,
-        std::filesystem::path second_file_path,
+        std::vector<std::filesystem::path> file_paths,
         std::filesystem::path output_file_path,
         std::uint8_t number_of_splits
     ) {
-        std::ofstream output_file(output_file_path.c_str());
+        std::ofstream output_file(output_file_path);
         if (!output_file.is_open()) {
             throw std::runtime_error("could not open output file: " + output_file_path.string());
         }
@@ -195,28 +187,28 @@ class FilesDeduplicator {
         int num_parts = this->number_of_threads * number_of_splits;
 
         tf::Taskflow split_files_tf;
-        split_files_tf.emplace(
-            [this, first_file_path, num_parts] {
-                this->split_file(first_file_path, "first_", num_parts);
-            },
-            [this, second_file_path, num_parts] {
-                this->split_file(second_file_path, "second_", num_parts);
-            }
-        );
+        for (std::size_t file_index = 0; file_index < file_paths.size(); ++file_index) {
+            split_files_tf.emplace(
+                [this, &file_paths, file_index, num_parts] {
+                    this->split_file(file_paths[file_index], std::to_string(file_index) + "_", num_parts);
+                }
+            );
+        }
 
         tf::Taskflow compute_added_lines_tf;
         compute_added_lines_tf.for_each_index(
             0,
             num_parts,
             1,
-            [this, &output_file] (int i) {
-                std::filesystem::path first_file_part_path(
-                    (this->working_directory / ("first_" + std::to_string(i))).string()
-                );
-                std::filesystem::path second_file_part_path(
-                    (this->working_directory / ("second_" + std::to_string(i))).string()
-                );
-                compute_part_deduped_lines(first_file_part_path, second_file_part_path, output_file);
+            [this, file_paths, &output_file] (int part_number) {
+                std::vector<std::filesystem::path> part_file_paths;
+                for (std::size_t file_index = 0; file_index < file_paths.size(); ++file_index) {
+                    std::filesystem::path part_file_path(
+                        this->working_directory / (std::to_string(file_index) + "_" + std::to_string(part_number))
+                    );
+                    part_file_paths.push_back(part_file_path);
+                }
+                compute_part_deduped_lines(part_file_paths, output_file);
             }
         );
 
@@ -256,8 +248,7 @@ PYBIND11_MODULE(pydeduplines, m) {
             "compute_deduped_lines",
             &FilesDeduplicator::compute_deduped_lines,
             "search over an index file for a substring",
-            pybind11::arg("first_file_path"),
-            pybind11::arg("second_file_path"),
+            pybind11::arg("file_paths"),
             pybind11::arg("output_file_path"),
             pybind11::arg("number_of_splits")
         );
