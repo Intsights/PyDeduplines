@@ -5,7 +5,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-20.04, macos-latest]
         python: [3.8, 3.7, 3.6]
     steps:
       - uses: actions/checkout@v2
@@ -17,7 +17,7 @@ jobs:
         run: |
           brew update
       - name: Install Linux packages
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         run: |
           sudo apt-get update
       - name: Run tests
