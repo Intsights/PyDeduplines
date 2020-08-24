@@ -23,8 +23,6 @@ jobs:
         if: matrix.os == 'ubuntu-20.04'
         run: |
           sudo apt-get update
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v2
       - name: Test on MacOS
         if: matrix.os == 'macos-latest'
         run: |
