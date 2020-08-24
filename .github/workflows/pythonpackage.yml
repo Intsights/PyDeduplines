@@ -5,32 +5,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest]
-        # os: [ubuntu-20.04, macos-latest]
-        python: [3.8]
-        # python: [3.8, 3.7, 3.6]
+        os: [ubuntu-20.04, macos-latest]
+        python: [3.8, 3.7, 3.6]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v1
         with:
           python-version: ${{ matrix.python }}
-      # - name: Install MacOS packages
-      #   if: matrix.os == 'macos-latest'
-      #   run: |
-      #     brew update
-      #     brew install tmate
-      # - name: Install Linux packages
-      #   if: matrix.os == 'ubuntu-20.04'
-      #   run: |
-      #     sudo apt-get update
       - name: Test on MacOS
         if: matrix.os == 'macos-latest'
         run: |
-          env
-          # python3 setup.py test
+          /usr/local/bin/python3 setup.py test
         shell: bash
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v2
       - name: Test on Linux
         if: matrix.os == 'ubuntu-20.04'
         run: |
