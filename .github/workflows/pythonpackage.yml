@@ -4,15 +4,14 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      max-parallel: 8
+      max-parallel: 2
       matrix:
         os: [ubuntu-20.04, windows-latest]
     steps:
     - uses: actions/checkout@v1
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+    - uses: actions/setup-python@v1
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: 3.8
     - name: Test module
       env:
         CIBW_BEFORE_BUILD: python scripts/fetch-vendor /tmp/vendor
