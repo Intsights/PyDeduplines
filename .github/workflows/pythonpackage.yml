@@ -20,8 +20,14 @@ jobs:
       with:
         vs-version: '[16.4,16.5)'
     - name: Test module
+      env:
+        CIBW_TEST_COMMAND: python setup.py test
       run: >-
-        python setup.py test
+        python3 -m pip install cibuildwheel;
+        python3 -m cibuildwheel --output-dir wheelhouse
+    # - name: Test module
+    #   run: >-
+    #     python setup.py test
   deploy:
     needs: build
     runs-on: ubuntu-20.04
