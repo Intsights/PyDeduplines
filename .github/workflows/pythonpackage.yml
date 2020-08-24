@@ -28,7 +28,9 @@ jobs:
       - name: Test on MacOS
         if: matrix.os == 'macos-latest'
         run: |
-          bash python3 setup.py test
+          gcc -v
+          clang -v
+          # python3 setup.py test
         shell: bash
       - name: Test on Linux
         if: matrix.os == 'ubuntu-20.04'
