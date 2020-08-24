@@ -5,7 +5,7 @@ import glob
 
 setuptools.setup(
     name='PyDeduplines',
-    version='0.1.5',
+    version='0.2.0',
     author='Gal Ben David',
     author_email='gal@intsights.com',
     url='https://github.com/intsights/PyDeduplines',
