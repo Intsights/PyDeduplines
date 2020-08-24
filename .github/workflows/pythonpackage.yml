@@ -23,6 +23,8 @@ jobs:
         if: matrix.os == 'ubuntu-20.04'
         run: |
           sudo apt-get update
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v2
       - name: Run tests
         run: |
           python setup.py test
