@@ -14,10 +14,10 @@ jobs:
         python-version: 3.8
     - name: Test module
       env:
-        CIBW_BEFORE_BUILD: python scripts/fetch-vendor /tmp/vendor
-        CIBW_BEFORE_BUILD_WINDOWS: python scripts\fetch-vendor C:\cibw\vendor
-        CIBW_ENVIRONMENT: CFLAGS=-I/tmp/vendor/include LDFLAGS=-L/tmp/vendor/lib
-        CIBW_ENVIRONMENT_WINDOWS: CL="/IC:\cibw\vendor\include" LINK="/LIBPATH:C:\cibw\vendor\lib"
+        # CIBW_BEFORE_BUILD: python scripts/fetch-vendor /tmp/vendor
+        # CIBW_BEFORE_BUILD_WINDOWS: python scripts\fetch-vendor C:\cibw\vendor
+        # CIBW_ENVIRONMENT: CFLAGS=-I/tmp/vendor/include LDFLAGS=-L/tmp/vendor/lib
+        # CIBW_ENVIRONMENT_WINDOWS: CL="/IC:\cibw\vendor\include" LINK="/LIBPATH:C:\cibw\vendor\lib"
         CIBW_SKIP: cp27-* cp35-* pp27-*
         CIBW_TEST_COMMAND: python setup.py test
       run: >-
