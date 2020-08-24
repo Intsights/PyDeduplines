@@ -15,6 +15,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Add msbuild to PATH
+      if: runner.os == 'Windows'
       uses: microsoft/setup-msbuild@v1.0.1
       with:
         vs-version: '[16.4,16.5)'
