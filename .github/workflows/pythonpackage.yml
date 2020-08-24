@@ -2,10 +2,11 @@ name: Build
 on: [push, pull_request]
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ${{ matrix.os }}
     strategy:
-      max-parallel: 4
+      max-parallel: 8
       matrix:
+        os: [macos-latest, ubuntu-20.04, windows-latest]
         python-version: [3.6, 3.7, 3.8, pypy3]
     steps:
     - uses: actions/checkout@v1
@@ -18,7 +19,7 @@ jobs:
         python setup.py test
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
     steps:
     - uses: actions/checkout@v1
