@@ -44,8 +44,7 @@ setuptools.setup(
             ),
             language='c++',
             extra_compile_args=[
-                '/std:c++17',
-                '-std=c++17',
+                '/std:c++17' if os.name == 'nt' else '-std=c++17',
             ],
             extra_link_args=[],
             include_dirs=[
