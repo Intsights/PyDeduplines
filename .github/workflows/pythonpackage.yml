@@ -19,6 +19,7 @@ jobs:
         run: |
           brew update
           brew install llvm@10
+          hash -r
       - name: Install Linux packages
         if: matrix.os == 'ubuntu-20.04'
         run: |
