@@ -1,11 +1,22 @@
 import setuptools
 import os
+import platform
 import glob
+
+
+extra_compile_args = []
+if platform.system() == 'Windows':
+    extra_compile_args.append('/std:c++17')
+elif platform.system() == 'Linux':
+    extra_compile_args.append('-std=c++17')
+elif platform.system() == 'Darwin':
+    extra_compile_args.append('-std=c++17')
+    extra_compile_args.append('-stdlib=libc++')
 
 
 setuptools.setup(
     name='PyDeduplines',
-    version='0.1.5',
+    version='0.2.0',
     author='Gal Ben David',
     author_email='gal@intsights.com',
     url='https://github.com/intsights/PyDeduplines',
@@ -27,6 +38,12 @@ setuptools.setup(
     zip_safe=False,
     package_data={},
     include_package_data=True,
+    setup_requires=[
+        'pytest-runner',
+    ],
+    tests_require=[
+        'pytest',
+    ],
     ext_modules=[
         setuptools.Extension(
             name='pydeduplines',
@@ -37,17 +54,10 @@ setuptools.setup(
                 ),
             ),
             language='c++',
-            extra_compile_args=[
-                '-Ofast',
-                '-march=native',
-                '-std=c++17',
-                '-Wno-unknown-pragmas',
-                '-Wno-class-memaccess',
-            ],
+            extra_compile_args=extra_compile_args,
             extra_link_args=[],
             include_dirs=[
                 'src',
-                'src/mimalloc/include',
             ]
         ),
     ],
