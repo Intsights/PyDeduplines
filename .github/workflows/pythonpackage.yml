@@ -6,7 +6,7 @@ jobs:
     strategy:
       max-parallel: 8
       matrix:
-        os: [macos-latest, ubuntu-20.04, windows-latest]
+        os: [ubuntu-20.04, windows-latest]
         python-version: [3.6, 3.7, 3.8, pypy3]
     steps:
     - uses: actions/checkout@v1

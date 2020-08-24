@@ -47,8 +47,6 @@ setuptools.setup(
                 '-Ofast',
                 '-march=native',
                 '-std=c++17',
-                '-Wno-unknown-pragmas',
-                '-Wno-class-memaccess',
             ],
             extra_link_args=[],
             include_dirs=[
