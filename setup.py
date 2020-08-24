@@ -44,8 +44,6 @@ setuptools.setup(
             ),
             language='c++',
             extra_compile_args=[
-                '-Ofast',
-                '-march=native',
                 '-std=c++17',
             ],
             extra_link_args=[],
