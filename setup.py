@@ -1,6 +1,17 @@
 import setuptools
 import os
+import platform
 import glob
+
+
+extra_compile_args = []
+if platform.system() == 'Windows':
+    extra_compile_args.append('/std:c++17')
+elif platform.system() == 'Linux':
+    extra_compile_args.append('-std=c++17')
+elif platform.system() == 'Darwin':
+    extra_compile_args.append('-std=c++17')
+    extra_compile_args.append('-stdlib=libc++')
 
 
 setuptools.setup(
@@ -43,9 +54,7 @@ setuptools.setup(
                 ),
             ),
             language='c++',
-            extra_compile_args=[
-                '/std:c++17' if os.name == 'nt' else '-std=c++17',
-            ],
+            extra_compile_args=extra_compile_args,
             extra_link_args=[],
             include_dirs=[
                 'src',
