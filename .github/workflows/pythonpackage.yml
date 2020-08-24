@@ -18,8 +18,8 @@ jobs:
       env:
         CIBW_TEST_COMMAND: python setup.py test
       run: >-
-        python3 -m pip install cibuildwheel;
-        python3 -m cibuildwheel --output-dir wheelhouse
+        python -m pip install cibuildwheel;
+        python -m cibuildwheel --output-dir wheelhouse
     # - name: Test module
     #   run: >-
     #     python setup.py test
