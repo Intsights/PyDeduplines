@@ -101,7 +101,7 @@ def compute_unique_lines(
 ```
 - `file_paths` - A list of strings containing the inputs file paths to iterate over and to compute unique lines.
 - `output_file_path` - An output file path that will be filled with the unique lines.
-- `number_of_splits` - Each input file would be split into multiple smaller splits according to this parameter. This parameter is the while idea of this library. The more splits the less peak memory consumption. One should remember that the more splits the more disk io.
+- `number_of_splits` - Each input file would be split into multiple smaller splits according to this parameter. This parameter is the while idea of this library. The more splits the less peak memory consumption. One should remember that the more splits the more open file handles.
 
 
 ```python

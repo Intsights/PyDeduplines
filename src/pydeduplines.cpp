@@ -38,7 +38,7 @@ class FilesDeduplicator {
         std::filesystem::path file_path,
         std::vector<std::string> & output_vector
     ) {
-        std::ifstream file(file_path, std::ios::binary);
+        std::ifstream file(file_path);
 
         std::string line;
         while (std::getline(file, line)) {
@@ -52,21 +52,21 @@ class FilesDeduplicator {
         std::uint32_t num_parts
     ) {
         std::vector<std::ofstream> output_files(num_parts);
-        for(std::uint32_t i = 0; i < num_parts; i++) {
+        for (std::uint32_t i = 0; i < num_parts; i++) {
             std::string part_output_file_path = (this->working_directory / (prefix + std::to_string(i))).string();
             output_files[i] = std::ofstream(part_output_file_path);
         }
 
         std::ifstream input_file(input_file_path);
-        if(!input_file.is_open()) {
+        if (!input_file.is_open()) {
             throw std::runtime_error("failed to open input file: " + input_file_path.string());
         }
 
         std::string line;
-        while(std::getline(input_file, line)) {
+        while (std::getline(input_file, line)) {
             unsigned long hash = 5381;
 
-            for(const char & c: line) {
+            for (const char & c: line) {
                 hash = ((hash << 5) + hash) + c;
             }
 
