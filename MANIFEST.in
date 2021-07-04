@@ -1,4 +1,4 @@
-include README.md
-include images/logo.png
-graft tests
+include Cargo.toml
+include pyproject.toml
 recursive-include src *
+recursive-include pydeduplines *

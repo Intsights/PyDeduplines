@@ -1,0 +1,36 @@
+[build-system]
+requires = ["maturin>=0.11,<0.12"]
+build-backend = "maturin"
+
+[tool.maturin]
+sdist-include = [
+    "src",
+    "Cargo.toml",
+    "pydeduplines",
+]
+manylinux = "2014"
+strip = true
+
+[tool.poetry]
+name = "PyDeduplines"
+version = "0.3.0"
+authors = ["Gal Ben David <gal@intsights.com>"]
+description = "Python library for a duplicate lines removal written in Rust"
+readme = "README.md"
+repository = "https://github.com/intsights/PyDeduplines"
+license = "MIT"
+keywords = [
+    "unique",
+    "lines",
+    "rust",
+    "pyo3",
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+wheel = "*"
+pytest-runner = "*"
+maturin = "*"

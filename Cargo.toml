@@ -1,0 +1,42 @@
+[package]
+name = "PyDeduplines"
+version = "0.3.0"
+authors = ["Gal Ben David <gal@intsights.com>"]
+edition = "2018"
+description = "Python library for a duplicate lines removal written in Rust"
+readme = "README.md"
+repository = "https://github.com/intsights/PyDeduplines"
+homepage = "https://github.com/intsights/PyDeduplines"
+license = "MIT"
+keywords = [
+    "unique",
+    "lines",
+    "rust",
+    "pyo3",
+]
+
+[package.metadata.maturin]
+requires-python = ">=3.7"
+classifier = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+]
+
+[lib]
+name = "pydeduplines"
+crate-type = ["cdylib"]
+
+[dependencies.pyo3]
+version = "0.14"
+features = ["extension-module"]
+
+[dependencies]
+rayon = "1.5"
+bstr = "0.2"
+parking_lot = "0.11"
+
+[profile.release]
+lto = true
+panic = "abort"
