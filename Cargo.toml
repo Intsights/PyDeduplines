@@ -1,6 +1,6 @@
 [package]
 name = "PyDeduplines"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Gal Ben David <gal@intsights.com>"]
 edition = "2018"
 description = "Python library for a duplicate lines removal written in Rust"
@@ -29,13 +29,14 @@ name = "pydeduplines"
 crate-type = ["cdylib"]
 
 [dependencies.pyo3]
-version = "0.14"
+version = "0.14.1"
 features = ["extension-module"]
 
 [dependencies]
-rayon = "1.5"
 bstr = "0.2"
 parking_lot = "0.11"
+crossbeam-utils = "0.8"
+crossbeam-deque = "0.8"
 
 [profile.release]
 lto = true
