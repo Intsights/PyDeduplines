@@ -29,11 +29,12 @@ name = "pydeduplines"
 crate-type = ["cdylib"]
 
 [dependencies.pyo3]
-version = "0.14.1"
+version = "0.14.5"
 features = ["extension-module"]
 
 [dependencies]
 bstr = "0.2"
+ahash = "0.7"
 parking_lot = "0.11"
 crossbeam-utils = "0.8"
 crossbeam-deque = "0.8"

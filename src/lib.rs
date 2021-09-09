@@ -1,3 +1,4 @@
+use ahash::AHashSet;
 use bstr::ByteVec;
 use bstr::io::BufReadExt;
 use crossbeam_deque::{Steal, Worker};
@@ -6,10 +7,9 @@ use parking_lot::Mutex;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
-use std::collections::HashSet;
+use std::fs;
 use std::fs::File;
-use std::io::BufReader;
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter};
 use std::io::prelude::*;
 use std::path::{PathBuf, Path};
 use std::sync::Arc;
@@ -64,24 +64,33 @@ fn compute_part_added_lines(
 ) -> PyResult<()> {
     let first_file = File::open(first_file_path)
         .map_err(|err| PyRuntimeError::new_err(format!("Could not open first_file_path: {:?}", err)))?;
-    let first_file_buf_reader = BufReader::new(first_file);
 
-    let mut lines_vec: Vec<Vec<u8>> = Vec::new();
-    first_file_buf_reader.for_byte_line(
+    let metadata = fs::metadata(first_file_path)
+        .map_err(|err| PyRuntimeError::new_err(format!("Could not get first_file_path metadata: {:?}", err)))?;
+    let number_of_bytes: usize = metadata.len() as usize + 1;
+
+    let mut number_of_lines: usize = 0;
+    let mut lines_text: Vec<u8> = Vec::with_capacity(number_of_bytes);
+    let first_file_buf_reader = BufReader::new(first_file);
+    first_file_buf_reader.for_byte_line_with_terminator(
         |line| {
-            lines_vec.push(Vec::from_slice(line));
+            lines_text.extend_from_slice(line);
+            number_of_lines += 1;
 
             Ok(!should_stop.load(Ordering::Relaxed))
         }
     )?;
 
-    let mut lines_set = HashSet::with_capacity(lines_vec.len());
-    for line in lines_vec.iter() {
-        lines_set.insert(line.as_slice());
-        if should_stop.load(Ordering::Relaxed) {
-            return Ok(());
+    let mut lines_set: AHashSet<&[u8]> = AHashSet::with_capacity(number_of_lines);
+    let mut current_offset: usize = 0;
+    lines_text.for_byte_line_with_terminator(
+        |line| {
+            lines_set.insert(&lines_text.as_slice()[current_offset..current_offset + line.len() - 1]);
+            current_offset += line.len();
+
+            Ok(!should_stop.load(Ordering::Relaxed))
         }
-    }
+    )?;
 
     let second_file = File::open(second_file_path)
         .map_err(|err| PyRuntimeError::new_err(format!("Could not open second_file_path: {:?}", err)))?;
@@ -108,30 +117,50 @@ fn compute_part_unique_lines(
     output_file: Arc<Mutex<BufWriter<File>>>,
     should_stop: &AtomicBool,
 ) -> PyResult<()> {
-    let mut lines_vec: Vec<Vec<u8>> = Vec::new();
+    let mut total_number_of_bytes: usize = 0;
+    for file_path in file_paths.iter() {
+        let metadata = fs::metadata(file_path)
+        .map_err(|err| PyRuntimeError::new_err(format!("Could not get file_path metadata: {:?}", err)))?;
+        total_number_of_bytes += metadata.len() as usize + 1;
+    }
+
+    let mut lines_text: Vec<u8> = Vec::with_capacity(total_number_of_bytes);
+    let mut total_number_of_lines: usize = 0;
     for file_path in file_paths.iter() {
         let file = File::open(file_path)
             .map_err(|err| PyRuntimeError::new_err(format!("Could not open file_path: {:?}", err)))?;
-        let file_buf_reader = BufReader::new(file);
+            let file_buf_reader = BufReader::new(file);
 
-        file_buf_reader.for_byte_line(
-            |line| {
-                lines_vec.push(Vec::from_slice(line));
+            file_buf_reader.for_byte_line_with_terminator(
+                |line| {
+                    lines_text.extend_from_slice(line);
+                    total_number_of_lines += 1;
 
-                Ok(!should_stop.load(Ordering::Relaxed))
+                    Ok(!should_stop.load(Ordering::Relaxed))
+                }
+            )?;
+            if !lines_text.ends_with(b"\n") {
+                lines_text.push_char('\n');
             }
-        )?;
-    }
-
-    let mut lines_set: HashSet<&[u8]> = HashSet::with_capacity(lines_vec.len());
-    for line in lines_vec.iter() {
-        if lines_set.insert(line.as_slice()) {
-            let mut output_file_locked = output_file.lock();
-            output_file_locked.write_all(line)
-                .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
-            output_file_locked.write_all(b"\n")
-                .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
         }
+
+    let mut lines_set: AHashSet<&[u8]> = AHashSet::with_capacity(total_number_of_lines);
+    let mut current_offset: usize = 0;
+    lines_text.for_byte_line_with_terminator(
+        |line| {
+            lines_set.insert(&lines_text.as_slice()[current_offset..current_offset + line.len() - 1]);
+            current_offset += line.len();
+
+            Ok(!should_stop.load(Ordering::Relaxed))
+        }
+    )?;
+
+    for line in lines_set.into_iter() {
+        let mut output_file_locked = output_file.lock();
+        output_file_locked.write_all(line)
+            .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
+        output_file_locked.write_all(b"\n")
+            .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
     }
 
     Ok(())
@@ -301,7 +330,7 @@ fn compute_unique_lines(
                             file_path.as_path(),
                             format!("{}_", i),
                             num_parts,
-                            &should_stop,
+                            should_stop,
                         );
                         results.lock().push(result);
                         working_threads.fetch_sub(1, Ordering::Relaxed);
