@@ -8,7 +8,7 @@ sdist-include = [
     "Cargo.toml",
     "pydeduplines",
 ]
-manylinux = "2014"
+manylinux = "Manylinux"
 strip = true
 
 [tool.poetry]
