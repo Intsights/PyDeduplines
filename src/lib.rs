@@ -1,8 +1,9 @@
-use ahash::AHashSet;
+use ahash::{AHashSet, RandomState};
 use bstr::ByteVec;
 use bstr::io::BufReadExt;
 use crossbeam_deque::{Steal, Worker};
 use crossbeam_utils::thread as crossbeam_thread;
+use indexmap::IndexSet;
 use parking_lot::Mutex;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -16,6 +17,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::thread;
 use std::time;
+
+const OUTFILE_FILE_BUFFER_SIZE: usize = 1024 * 1024 * 10;
 
 fn split_file(
     working_directory: &Path,
@@ -44,10 +47,12 @@ fn split_file(
             }
             let index = hash % num_parts;
 
-            output_files[index].write_all(line)
-                .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_files[index]: {:?}", err)))?;
-            output_files[index].write_all(b"\n")
-                .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_files[index]: {:?}", err)))?;
+            unsafe {
+                output_files.get_unchecked_mut(index).write_all(line)
+                    .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_files[index]: {:?}", err)))?;
+                output_files.get_unchecked_mut(index).write_all(b"\n")
+                    .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_files[index]: {:?}", err)))?;
+            }
 
             Ok(!should_stop.load(Ordering::Relaxed))
         }
@@ -62,31 +67,18 @@ fn compute_part_added_lines(
     output_file: Arc<Mutex<BufWriter<File>>>,
     should_stop: &AtomicBool,
 ) -> PyResult<()> {
-    let first_file = File::open(first_file_path)
+    let first_file_data = std::fs::read(first_file_path)
         .map_err(|err| PyRuntimeError::new_err(format!("Could not open first_file_path: {:?}", err)))?;
 
-    let metadata = fs::metadata(first_file_path)
-        .map_err(|err| PyRuntimeError::new_err(format!("Could not get first_file_path metadata: {:?}", err)))?;
-    let number_of_bytes: usize = metadata.len() as usize + 1;
-
-    let mut number_of_lines: usize = 0;
-    let mut lines_text: Vec<u8> = Vec::with_capacity(number_of_bytes);
-    let first_file_buf_reader = BufReader::new(first_file);
-    first_file_buf_reader.for_byte_line_with_terminator(
-        |line| {
-            lines_text.extend_from_slice(line);
-            number_of_lines += 1;
-
-            Ok(!should_stop.load(Ordering::Relaxed))
-        }
-    )?;
-
+    let number_of_lines: usize = bytecount::count(first_file_data.as_slice(), b'\n');
     let mut lines_set: AHashSet<&[u8]> = AHashSet::with_capacity(number_of_lines);
     let mut current_offset: usize = 0;
-    lines_text.for_byte_line_with_terminator(
+    first_file_data.for_byte_line(
         |line| {
-            lines_set.insert(&lines_text.as_slice()[current_offset..current_offset + line.len() - 1]);
-            current_offset += line.len();
+            unsafe {
+                lines_set.insert(first_file_data.get_unchecked(current_offset..current_offset + line.len()));
+            }
+            current_offset += line.len() + 1;
 
             Ok(!should_stop.load(Ordering::Relaxed))
         }
@@ -95,19 +87,26 @@ fn compute_part_added_lines(
     let second_file = File::open(second_file_path)
         .map_err(|err| PyRuntimeError::new_err(format!("Could not open second_file_path: {:?}", err)))?;
     let second_file_buf_reader = BufReader::new(second_file);
+    let mut buffer: Vec<u8> = Vec::with_capacity(OUTFILE_FILE_BUFFER_SIZE + 1);
     second_file_buf_reader.for_byte_line(
         |line| {
             if !lines_set.contains(line) {
-                let mut output_file_locked = output_file.lock();
-                output_file_locked.write_all(line)
-                    .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
-                output_file_locked.write_all(b"\n")
-                    .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
+                if buffer.len() + line.len() > OUTFILE_FILE_BUFFER_SIZE {
+                    output_file.lock().write_all(&buffer)
+                        .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
+                    buffer.clear();
+                }
+                buffer.extend_from_slice(line);
+                buffer.push_byte(b'\n');
             }
 
             Ok(!should_stop.load(Ordering::Relaxed))
         }
     )?;
+    if !buffer.is_empty() {
+        output_file.lock().write_all(&buffer)
+            .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
+    }
 
     Ok(())
 }
@@ -120,46 +119,46 @@ fn compute_part_unique_lines(
     let mut total_number_of_bytes: usize = 0;
     for file_path in file_paths.iter() {
         let metadata = fs::metadata(file_path)
-        .map_err(|err| PyRuntimeError::new_err(format!("Could not get file_path metadata: {:?}", err)))?;
-        total_number_of_bytes += metadata.len() as usize + 1;
+            .map_err(|err| PyRuntimeError::new_err(format!("Could not get file_path metadata: {:?}", err)))?;
+        total_number_of_bytes += metadata.len() as usize + file_paths.len();
     }
 
-    let mut lines_text: Vec<u8> = Vec::with_capacity(total_number_of_bytes);
-    let mut total_number_of_lines: usize = 0;
+    let mut file_data: Vec<u8> = Vec::with_capacity(total_number_of_bytes);
     for file_path in file_paths.iter() {
-        let file = File::open(file_path)
-            .map_err(|err| PyRuntimeError::new_err(format!("Could not open file_path: {:?}", err)))?;
-            let file_buf_reader = BufReader::new(file);
-
-            file_buf_reader.for_byte_line_with_terminator(
-                |line| {
-                    lines_text.extend_from_slice(line);
-                    total_number_of_lines += 1;
-
-                    Ok(!should_stop.load(Ordering::Relaxed))
-                }
-            )?;
-            if !lines_text.ends_with(b"\n") {
-                lines_text.push_char('\n');
-            }
+        let current_file_data = std::fs::read(file_path)
+            .map_err(|err| PyRuntimeError::new_err(format!("Could not open current_file_data: {:?}", err)))?;
+        file_data.extend_from_slice(current_file_data.as_slice());
+        if !file_data.ends_with(b"\n") {
+            file_data.push_char('\n');
         }
+    }
 
-    let mut lines_set: AHashSet<&[u8]> = AHashSet::with_capacity(total_number_of_lines);
+    let total_number_of_lines: usize = bytecount::count(file_data.as_slice(), b'\n');
+    let mut lines_set: IndexSet<&[u8], RandomState> = IndexSet::with_capacity_and_hasher(total_number_of_lines, RandomState::new());
     let mut current_offset: usize = 0;
-    lines_text.for_byte_line_with_terminator(
+    file_data.for_byte_line(
         |line| {
-            lines_set.insert(&lines_text.as_slice()[current_offset..current_offset + line.len() - 1]);
-            current_offset += line.len();
+            unsafe {
+                lines_set.insert(file_data.get_unchecked(current_offset..current_offset + line.len()));
+            }
+            current_offset += line.len() + 1;
 
             Ok(!should_stop.load(Ordering::Relaxed))
         }
     )?;
 
-    for line in lines_set.into_iter() {
-        let mut output_file_locked = output_file.lock();
-        output_file_locked.write_all(line)
-            .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
-        output_file_locked.write_all(b"\n")
+    let mut buffer: Vec<u8> = Vec::with_capacity(OUTFILE_FILE_BUFFER_SIZE + 1);
+    for line in lines_set {
+        if buffer.len() + line.len() > OUTFILE_FILE_BUFFER_SIZE {
+            output_file.lock().write_all(&buffer)
+                .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
+            buffer.clear();
+        }
+        buffer.extend_from_slice(line);
+        buffer.push_byte(b'\n');
+    }
+    if !buffer.is_empty() {
+        output_file.lock().write_all(&buffer)
             .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
     }
 
