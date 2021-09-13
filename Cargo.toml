@@ -1,6 +1,6 @@
 [package]
 name = "PyDeduplines"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Gal Ben David <gal@intsights.com>"]
 edition = "2018"
 description = "Python library for a duplicate lines removal written in Rust"
