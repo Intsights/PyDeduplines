@@ -49,7 +49,7 @@ fn split_file(
         let mut prev_index = 0;
         for current_index in memchr_iter(b'\n', buf) {
             unsafe {
-                let line = buf.get_unchecked(prev_index..current_index + 1);
+                let line = buf.get_unchecked(prev_index..=current_index);
                 let current_index = line.iter().map(|x| *x as usize).sum::<usize>() % num_parts;
 
                 output_files.get_unchecked_mut(current_index).write_all(line)
@@ -83,7 +83,7 @@ fn split_file(
         if should_stop.load(Ordering::Relaxed) {
             return Ok(());
         }
-    }
+    };
 
     Ok(())
 }
@@ -134,7 +134,7 @@ fn compute_part_added_lines(
                             .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
                         output_file_buffer.clear();
                     }
-                    output_file_buffer.extend_from_slice(buf.get_unchecked(prev_index..current_index + 1));
+                    output_file_buffer.extend_from_slice(buf.get_unchecked(prev_index..=current_index));
                 }
 
                 prev_index = current_index + 1;
@@ -147,7 +147,7 @@ fn compute_part_added_lines(
         second_file.consume(consumed);
 
         second_file.read_until(b'\n', &mut bytes)?;
-        if bytes.len() > 2 && !lines_set.contains(&bytes[..bytes.len() - 1]) {
+        if bytes.len() > 1 && !lines_set.contains(&bytes[..bytes.len() - 1]) {
             output_file.lock().write_all(&bytes)
                 .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
         }
@@ -191,7 +191,7 @@ fn compute_part_unique_lines(
     let mut prev_index = 0;
     for current_index in memchr_iter(b'\n', &file_data) {
         unsafe {
-            let record = file_data.get_unchecked(prev_index..current_index + 1);
+            let record = file_data.get_unchecked(prev_index..=current_index);
             prev_index = current_index + 1;
 
             if lines_set.insert(record) {
