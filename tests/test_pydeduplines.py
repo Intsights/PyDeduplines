@@ -27,19 +27,19 @@ def test_compute_unique_lines_one_file(
 ):
     with contextlib.ExitStack() as stack:
         test_input_file_one = stack.enter_context(
-            tempfile.NamedTemporaryFile('w')
+            tempfile.NamedTemporaryFile('wb')
         )
         test_output_file = stack.enter_context(
-            tempfile.NamedTemporaryFile('r')
+            tempfile.NamedTemporaryFile('rb')
         )
 
         lines = [
-            f'line{i}'
+            f'line{i}'.encode()
             for i in range(11000)
         ]
         random.shuffle(lines)
 
-        test_input_file_one.file.write('\n'.join(lines * 2))
+        test_input_file_one.file.write(b'\n'.join(lines * 2))
         test_input_file_one.file.flush()
 
         tempdir = tempfile.mkdtemp()
@@ -54,7 +54,7 @@ def test_compute_unique_lines_one_file(
         )
         unique_file_data = test_output_file.read()
 
-        assert sorted(unique_file_data.split('\n')) == sorted(lines + [''])
+        assert sorted(unique_file_data.split(b'\n')[:-1]) == sorted(lines)
 
 
 @pytest.mark.parametrize(
@@ -78,25 +78,25 @@ def test_compute_unique_lines_two_files(
 ):
     with contextlib.ExitStack() as stack:
         test_input_file_one = stack.enter_context(
-            tempfile.NamedTemporaryFile('w')
+            tempfile.NamedTemporaryFile('wb')
         )
         test_input_file_two = stack.enter_context(
-            tempfile.NamedTemporaryFile('w')
+            tempfile.NamedTemporaryFile('wb')
         )
         test_output_file = stack.enter_context(
-            tempfile.NamedTemporaryFile('r')
+            tempfile.NamedTemporaryFile('rb')
         )
 
         lines = [
-            f'line{i}'
+            f'line{i}'.encode()
             for i in range(11000)
         ]
         random.shuffle(lines)
 
-        test_input_file_one.file.write('\n'.join(lines[:10000]))
+        test_input_file_one.file.write(b'\n'.join(lines[:10000]))
         test_input_file_one.file.flush()
 
-        test_input_file_two.file.write('\n'.join(lines[:11000]))
+        test_input_file_two.file.write(b'\n'.join(lines[:11000]))
         test_input_file_two.file.flush()
 
         tempdir = tempfile.mkdtemp()
@@ -112,7 +112,7 @@ def test_compute_unique_lines_two_files(
         )
         unique_file_data = test_output_file.read()
 
-        assert sorted(unique_file_data.split('\n')) == sorted(lines + [''])
+        assert sorted(unique_file_data.split(b'\n')[:-1]) == sorted(lines)
 
 
 @pytest.mark.parametrize(
@@ -136,25 +136,25 @@ def test_compute_added_lines(
 ):
     with contextlib.ExitStack() as stack:
         test_input_file_one = stack.enter_context(
-            tempfile.NamedTemporaryFile('w')
+            tempfile.NamedTemporaryFile('wb')
         )
         test_input_file_two = stack.enter_context(
-            tempfile.NamedTemporaryFile('w')
+            tempfile.NamedTemporaryFile('wb')
         )
         test_output_file = stack.enter_context(
-            tempfile.NamedTemporaryFile('r')
+            tempfile.NamedTemporaryFile('rb')
         )
 
         lines = [
-            f'line{i}'
+            f'line{i}'.encode()
             for i in range(11000)
         ]
         random.shuffle(lines)
 
-        test_input_file_one.file.write('\n'.join(lines[:10000]))
+        test_input_file_one.file.write(b'\n'.join(lines[:10000]))
         test_input_file_one.file.flush()
 
-        test_input_file_two.file.write('\n'.join(lines[:11000]))
+        test_input_file_two.file.write(b'\n'.join(lines[:11000]))
         test_input_file_two.file.flush()
 
         tempdir = tempfile.mkdtemp()
@@ -167,5 +167,4 @@ def test_compute_added_lines(
             number_of_threads=number_of_threads,
         )
         added_lines_file_data = test_output_file.read()
-
-        assert sorted(added_lines_file_data.split('\n')) == sorted(lines[10000:] + [''])
+        assert sorted(added_lines_file_data.split(b'\n')[:-1]) == sorted(lines[10000:])
