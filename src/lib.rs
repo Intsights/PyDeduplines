@@ -1,7 +1,6 @@
-use ahash::{AHashSet, RandomState};
+use ahash::AHashSet;
 use crossbeam_deque::{Steal, Worker};
 use crossbeam_utils::thread as crossbeam_thread;
-use indexmap::IndexSet;
 use memchr::memchr_iter;
 use parking_lot::Mutex;
 use pyo3::exceptions::PyRuntimeError;
@@ -39,7 +38,7 @@ fn split_file(
     let mut input_file = BufReader::new(input_file);
 
     let mut bytes = vec![];
-    loop {
+    while !should_stop.load(Ordering::Relaxed) {
         let buf = input_file.fill_buf()?;
         let consumed = buf.len();
         if consumed == 0 {
@@ -61,27 +60,23 @@ fn split_file(
 
         if prev_index < buf.len() {
             bytes.extend_from_slice(&buf[prev_index..]);
-        }
+            input_file.consume(consumed);
+            input_file.read_until(b'\n', &mut bytes)?;
+            if !bytes.is_empty() {
+                if !bytes.ends_with(b"\n") {
+                    bytes.push(b'\n');
+                }
 
-        input_file.consume(consumed);
+                let index = bytes.iter().map(|x| *x as usize).sum::<usize>() % num_parts;
 
-        input_file.read_until(b'\n', &mut bytes)?;
-        if !bytes.is_empty() {
-            if !bytes.ends_with(b"\n") {
-                bytes.push(b'\n');
+                unsafe {
+                    output_files.get_unchecked_mut(index).write_all(&bytes)
+                        .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_files[index]: {:?}", err)))?;
+                }
             }
-
-            let index = bytes.iter().map(|x| *x as usize).sum::<usize>() % num_parts;
-
-            unsafe {
-                output_files.get_unchecked_mut(index).write_all(&bytes)
-                    .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_files[index]: {:?}", err)))?;
-            }
-        }
-        bytes.clear();
-
-        if should_stop.load(Ordering::Relaxed) {
-            return Ok(());
+            bytes.clear();
+        } else {
+            input_file.consume(consumed);
         }
     };
 
@@ -116,7 +111,7 @@ fn compute_part_added_lines(
     let mut second_file = BufReader::new(second_file);
     let mut output_file_buffer = Vec::with_capacity(OUTPUT_FILE_BUFFER_SIZE + 1);
     let mut bytes = vec![];
-    loop {
+    while !should_stop.load(Ordering::Relaxed) {
         let buf = second_file.fill_buf()?;
         let consumed = buf.len();
         if consumed == 0 {
@@ -127,7 +122,6 @@ fn compute_part_added_lines(
         for current_index in memchr_iter(b'\n', buf) {
             unsafe {
                 let line = buf.get_unchecked(prev_index..current_index);
-
                 if !lines_set.contains(line) {
                     if output_file_buffer.len() + line.len() + 1 > OUTPUT_FILE_BUFFER_SIZE {
                         output_file.lock().write_all(&output_file_buffer)
@@ -143,18 +137,15 @@ fn compute_part_added_lines(
 
         if prev_index < buf.len() {
             bytes.extend_from_slice(&buf[prev_index..]);
-        }
-        second_file.consume(consumed);
-
-        second_file.read_until(b'\n', &mut bytes)?;
-        if bytes.len() > 1 && !lines_set.contains(&bytes[..bytes.len() - 1]) {
-            output_file.lock().write_all(&bytes)
+            second_file.consume(consumed);
+            second_file.read_until(b'\n', &mut bytes)?;
+            if bytes.len() > 1 && !lines_set.contains(&bytes[..bytes.len() - 1]) {
+                output_file.lock().write_all(&bytes)
                 .map_err(|err| PyRuntimeError::new_err(format!("Could not write to output_file_locked: {:?}", err)))?;
-        }
-        bytes.clear();
-
-        if should_stop.load(Ordering::Relaxed) {
-            return Ok(());
+            }
+            bytes.clear();
+        } else {
+            second_file.consume(consumed);
         }
     }
     if !output_file_buffer.is_empty() {
@@ -185,7 +176,7 @@ fn compute_part_unique_lines(
     }
 
     let total_number_of_lines = bytecount::count(&file_data, b'\n');
-    let mut lines_set = IndexSet::with_capacity_and_hasher(total_number_of_lines, RandomState::new());
+    let mut lines_set = AHashSet::with_capacity(total_number_of_lines);
     let mut output_file_buffer = Vec::with_capacity(OUTPUT_FILE_BUFFER_SIZE + 1);
 
     let mut prev_index = 0;
