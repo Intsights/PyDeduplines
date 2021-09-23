@@ -8,12 +8,11 @@ sdist-include = [
     "Cargo.toml",
     "pydeduplines",
 ]
-manylinux = "2014"
 strip = true
 
 [tool.poetry]
 name = "PyDeduplines"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Gal Ben David <gal@intsights.com>"]
 description = "Python library for a duplicate lines removal written in Rust"
 readme = "README.md"
