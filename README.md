@@ -40,9 +40,11 @@ There are two functions in the library:
 ### Built With
 
 * [pyo3](https://github.com/PyO3/pyo3)
-* [rayon](https://github.com/rayon-rs/rayon)
-* [bstr](https://github.com/BurntSushi/bstr)
+* [crossbeam](https://github.com/crossbeam-rs/crossbeam)
+* [ahash](https://github.com/tkaitchuck/aHash)
 * [parking_lot](https://github.com/Amanieu/parking_lot)
+* [memchr](https://github.com/BurntSushi/memchr)
+* [bytecount](https://github.com/llogiq/bytecount)
 
 
 ### Performance
@@ -50,14 +52,14 @@ There are two functions in the library:
 #### Deduplicating
 | Library  | Function | Time | Peak Memory |
 | ------------- | ------------- | ------------- | ------------- |
-| [GNU Sort](https://www.gnu.org/software/coreutils/) | sort -u -o output 500mb_one 500mb_two | 72.02s | 3,926mb |
-| [PyDeduplines](https://github.com/intsights/PyDeduplines) | compute_unique_lines(['500mb_one', '500mb_two'], 'output', 4) | 24.31s | 1,440mb |
+| [GNU Sort](https://www.gnu.org/software/coreutils/) | sort -u -o output 500mb_one 500mb_two | 37.35s | 8,261mb |
+| [PyDeduplines](https://github.com/intsights/PyDeduplines) | compute_unique_lines('./workdir', ['500mb_one', '500mb_two'], 'output', 16) | 4.55s | 685mb |
 
 #### Added Lines
 | Library  | Function | Time | Peak Memory |
 | ------------- | ------------- | ------------- | ------------- |
-| [GNU Sort](https://www.gnu.org/software/coreutils/) | comm -1 -3 <(sort 500mb_one) <(sort 500mb_two) > output.txt | 23.83s | 3,926mb |
-| [PyDeduplines](https://github.com/intsights/PyDeduplines) | compute_added_lines('500mb_one', '500mb_two', 'output', 4) | 4.27s | 726mb |
+| [GNU Sort](https://www.gnu.org/software/coreutils/) | comm -1 -3 <(sort 500mb_one) <(sort 500mb_two) > output.txt | 26.53s | 4,132mb |
+| [PyDeduplines](https://github.com/intsights/PyDeduplines) | compute_added_lines('./workdir', '500mb_one', '500mb_two', 'output', 16) | 3.95s | 314mb |
 
 
 ### Installation
