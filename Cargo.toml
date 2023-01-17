@@ -1,6 +1,6 @@
 [package]
 name = "PyDeduplines"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Gal Ben David <gal@intsights.com>"]
 edition = "2021"
 description = "Python library for a duplicate lines removal written in Rust"
@@ -23,6 +23,7 @@ classifier = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 
 [lib]

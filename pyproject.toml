@@ -11,7 +11,7 @@ sdist-include = [
 
 [tool.poetry]
 name = "PyDeduplines"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Gal Ben David <gal@intsights.com>"]
 description = "Python library for a duplicate lines removal written in Rust"
 readme = "README.md"
@@ -32,3 +32,15 @@ pytest = "*"
 wheel = "*"
 pytest-runner = "*"
 maturin = "*"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Rust",
+]
