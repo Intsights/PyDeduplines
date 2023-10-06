@@ -1,0 +1,15 @@
+---
+info:
+  title: Pydeduplines
+  description: Python library for a duplicate lines removal written in C++
+  x-cortex-git:
+    github:
+      alias: intsightsorg
+      repository: Intsights/PyDeduplines
+  x-cortex-tag: pydeduplines
+  x-cortex-type: service
+  x-cortex-domain-parents:
+  - tag: threatintel-rd
+openapi: 3.0.1
+servers:
+- url: "/"
