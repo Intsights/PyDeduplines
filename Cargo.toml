@@ -1,6 +1,6 @@
 [package]
 name = "PyDeduplines"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Gal Ben David <gal@intsights.com>"]
 edition = "2021"
 description = "Python library for a duplicate lines removal written in Rust"
@@ -16,15 +16,6 @@ keywords = [
 ]
 
 [package.metadata.maturin]
-requires-python = ">=3.7"
-classifier = [
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-]
 
 [lib]
 name = "pydeduplines"
